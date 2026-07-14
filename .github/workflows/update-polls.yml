@@ -37,6 +37,9 @@ jobs:
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -r requirements.txt
 
+      - name: Install Playwright browser
+        run: .venv/bin/python3 -m playwright install chromium
+
       - name: Scrape latest polls
         run: .venv/bin/python3 scrape.py
 
