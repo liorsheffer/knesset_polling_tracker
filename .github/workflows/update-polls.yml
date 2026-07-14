@@ -2,9 +2,11 @@ name: Update poll data
 
 on:
   schedule:
-    # Runs at minute 15 past every 6th hour (UTC). Adjust as you like —
-    # themadad.com typically publishes new polls a few times a week.
-    - cron: "15 */6 * * *"
+    # Once a day at 06:00 UTC. This job waits in GitHub's queue until your
+    # self-hosted runner is online and picks it up — it won't fail if your
+    # computer happens to be off at that exact time, it just runs whenever
+    # the runner next connects.
+    - cron: "0 6 * * *"
   workflow_dispatch: {}   # lets you trigger it manually from the Actions tab
   push:
     branches: [main]
@@ -20,7 +22,10 @@ concurrency:
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest
+    # Runs on YOUR machine (the self-hosted runner you registered), not
+    # GitHub's shared servers — themadad.com blocks GitHub's IP ranges,
+    # but not yours.
+    runs-on: self-hosted
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
     steps:
@@ -56,6 +61,8 @@ jobs:
 
   deploy:
     needs: scrape
+    # This job just needs to publish files that are already in the repo —
+    # no request to themadad.com — so GitHub's own servers are fine here.
     runs-on: ubuntu-latest
     environment:
       name: github-pages
