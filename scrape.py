@@ -12,6 +12,11 @@ import sys
 from pathlib import Path
 
 import requests
+try:
+    import cloudscraper
+    _HAS_CLOUDSCRAPER = True
+except ImportError:
+    _HAS_CLOUDSCRAPER = False
 from bs4 import BeautifulSoup
 
 URL = "https://themadad.com/allpolls/"
@@ -25,10 +30,56 @@ PARTY_KEYS = [
     "OtzmaYehudit", "Together", "Yisr", "TrooperHendel", "UnitedArabList",
 ]
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; PollTrackerBot/1.0; "
-                  "+https://github.com/) personal, non-commercial poll aggregator"
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+              "image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Referer": "https://themadad.com/",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-User": "?1",
+    "Connection": "keep-alive",
 }
+
+
+def fetch_html(url: str) -> str:
+    """Fetch a page's HTML, trying to look like a real browser request.
+    themadad.com (or its host) returns a bare 403 to generic scraper
+    requests, which is common WAF/bot-protection behaviour (Cloudflare,
+    Wordfence, Sucuri, etc. all do this). cloudscraper specifically knows
+    how to get past the Cloudflare flavor of that; if it's not installed
+    or doesn't help, we fall back to a plain request with full browser
+    headers, which is enough for simpler UA-based blocks."""
+    last_error = None
+
+    if _HAS_CLOUDSCRAPER:
+        try:
+            scraper = cloudscraper.create_scraper(
+                browser={"browser": "chrome", "platform": "windows", "mobile": False}
+            )
+            resp = scraper.get(url, headers=BROWSER_HEADERS, timeout=30)
+            resp.raise_for_status()
+            return resp.text
+        except Exception as e:  # noqa: BLE001 - want to try the fallback regardless
+            last_error = e
+            print(f"cloudscraper attempt failed ({e}); falling back to requests", file=sys.stderr)
+
+    try:
+        session = requests.Session()
+        session.headers.update(BROWSER_HEADERS)
+        # Visiting the homepage first sets cookies some WAFs expect before
+        # allowing the deeper page.
+        session.get("https://themadad.com/", timeout=30)
+        resp = session.get(url, timeout=30)
+        resp.raise_for_status()
+        return resp.text
+    except Exception as e:  # noqa: BLE001
+        raise last_error or e
 
 
 def parse_int(cell: str):
@@ -55,9 +106,21 @@ def find_polls_table(soup: BeautifulSoup):
 
 
 def scrape():
-    resp = requests.get(URL, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
+    try:
+        html = fetch_html(URL)
+    except Exception as e:  # noqa: BLE001
+        print(
+            f"Could not fetch {URL} — got: {e}\n"
+            "This usually means the site's firewall is blocking the request "
+            "(a bare 403 with no page content is typical of Cloudflare/Wordfence-"
+            "style bot protection). If this keeps happening, the site may need "
+            "to allowlist this scraper, or the workflow may need to run from a "
+            "residential/self-hosted runner instead of GitHub's shared runners.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    soup = BeautifulSoup(html, "html.parser")
 
     table = find_polls_table(soup)
     if table is None:
