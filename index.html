@@ -170,6 +170,47 @@
   .chart-box{position:relative;height:380px;}
   .chart-box.short{height:220px;}
 
+  /* date range control */
+  .daterange{
+    display:flex;align-items:center;gap:14px;margin-bottom:20px;
+    padding:14px 16px;border:1px solid var(--hair);border-radius:8px;
+    background:rgba(0,0,0,0.12);flex-wrap:wrap;
+  }
+  .daterange input[type=date]{
+    background:var(--ink);border:1px solid var(--hair-strong);border-radius:5px;
+    color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11.5px;
+    padding:6px 8px;color-scheme:dark;flex-shrink:0;
+  }
+  .daterange input[type=date]:focus{outline:none;border-color:var(--gold);}
+  .slider-wrap{position:relative;flex:1;min-width:160px;height:20px;}
+  .slider-wrap .track{
+    position:absolute;top:50%;left:0;right:0;height:3px;transform:translateY(-50%);
+    background:var(--hair-strong);border-radius:2px;
+  }
+  .slider-wrap .fill{
+    position:absolute;top:50%;height:3px;transform:translateY(-50%);
+    background:var(--gold);border-radius:2px;
+  }
+  .slider-wrap input[type=range]{
+    position:absolute;top:0;left:0;width:100%;height:20px;margin:0;
+    -webkit-appearance:none;appearance:none;background:transparent;pointer-events:none;
+  }
+  .slider-wrap input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;pointer-events:auto;
+    width:15px;height:15px;border-radius:50%;background:var(--gold);
+    border:2px solid var(--ink);cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.5);
+  }
+  .slider-wrap input[type=range]::-moz-range-thumb{
+    pointer-events:auto;width:15px;height:15px;border-radius:50%;background:var(--gold);
+    border:2px solid var(--ink);cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.5);
+  }
+  .slider-wrap input[type=range]::-webkit-slider-runnable-track{background:transparent;}
+  .slider-wrap input[type=range]::-moz-range-track{background:transparent;}
+  .daterange .rangelabel{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-faint);
+    white-space:nowrap;
+  }
+
   /* table */
   .table-controls{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;}
   .search-box{
@@ -264,6 +305,7 @@
     <div class="card">
       <div class="chip-row" id="partyChips"></div>
       <div class="chip-row" id="partyGroupToggles"></div>
+      <div class="daterange" id="partyDateRange"></div>
       <div class="chart-box"><canvas id="trendChart"></canvas></div>
     </div>
   </section>
@@ -278,6 +320,7 @@
     </div>
     <div class="card">
       <div class="chip-row" id="blocGroupToggles"></div>
+      <div class="daterange" id="blocDateRange"></div>
       <div class="chart-box short"><canvas id="blocChart"></canvas></div>
     </div>
   </section>
@@ -349,6 +392,91 @@ let activePartyGroups = new Set(["government","regular"]);
 let activeBlocGroups = new Set(["government","regular"]);
 let showPartyTrend = false;
 let showBlocTrend = false;
+let partyRange = {start:null, end:null};
+let blocRange = {start:null, end:null};
+
+function tsToDay(ts){ return Math.round(ts/86400000); }
+function dayToTs(day){ return day*86400000; }
+function tsToDateInputVal(ts){ return new Date(ts).toISOString().slice(0,10); }
+
+function getDataDateBounds(){
+  const dates = DATA.map(r=>r.date).sort();
+  return { minTs: dateToTs(dates[0]), maxTs: dateToTs(dates[dates.length-1]) };
+}
+
+function buildDateRangeControl(containerId, rangeState, onChange){
+  const bounds = getDataDateBounds();
+  if(rangeState.start===null){ rangeState.start = bounds.minTs; rangeState.end = bounds.maxTs; }
+  const minDay = tsToDay(bounds.minTs), maxDay = tsToDay(bounds.maxTs);
+
+  const container = document.getElementById(containerId);
+  container.innerHTML = `
+    <input type="date" class="startDate" />
+    <div class="slider-wrap">
+      <div class="track"></div>
+      <div class="fill"></div>
+      <input type="range" class="startRange" />
+      <input type="range" class="endRange" />
+    </div>
+    <input type="date" class="endDate" />
+  `;
+  const startDateEl = container.querySelector('.startDate');
+  const endDateEl = container.querySelector('.endDate');
+  const startRangeEl = container.querySelector('.startRange');
+  const endRangeEl = container.querySelector('.endRange');
+  const fillEl = container.querySelector('.fill');
+
+  [startDateEl, endDateEl].forEach(el=>{
+    el.min = tsToDateInputVal(bounds.minTs);
+    el.max = tsToDateInputVal(bounds.maxTs);
+  });
+  [startRangeEl, endRangeEl].forEach(el=>{
+    el.min = minDay; el.max = maxDay; el.step = 1;
+  });
+
+  function syncFromState(){
+    startDateEl.value = tsToDateInputVal(rangeState.start);
+    endDateEl.value = tsToDateInputVal(rangeState.end);
+    startRangeEl.value = tsToDay(rangeState.start);
+    endRangeEl.value = tsToDay(rangeState.end);
+    const pctStart = (tsToDay(rangeState.start)-minDay)/((maxDay-minDay)||1)*100;
+    const pctEnd = (tsToDay(rangeState.end)-minDay)/((maxDay-minDay)||1)*100;
+    fillEl.style.left = pctStart+'%';
+    fillEl.style.width = Math.max(0,(pctEnd-pctStart))+'%';
+  }
+  syncFromState();
+
+  function commit(){ syncFromState(); onChange(); }
+
+  startRangeEl.addEventListener('input', ()=>{
+    let day = parseInt(startRangeEl.value,10);
+    const endDay = tsToDay(rangeState.end);
+    if(day>endDay) day = endDay;
+    rangeState.start = dayToTs(day);
+    commit();
+  });
+  endRangeEl.addEventListener('input', ()=>{
+    let day = parseInt(endRangeEl.value,10);
+    const startDay = tsToDay(rangeState.start);
+    if(day<startDay) day = startDay;
+    rangeState.end = dayToTs(day);
+    commit();
+  });
+  startDateEl.addEventListener('change', ()=>{
+    let ts = dateToTs(startDateEl.value);
+    if(ts>rangeState.end) ts = rangeState.end;
+    if(ts<bounds.minTs) ts = bounds.minTs;
+    rangeState.start = ts;
+    commit();
+  });
+  endDateEl.addEventListener('change', ()=>{
+    let ts = dateToTs(endDateEl.value);
+    if(ts<rangeState.start) ts = rangeState.start;
+    if(ts>bounds.maxTs) ts = bounds.maxTs;
+    rangeState.end = ts;
+    commit();
+  });
+}
 
 const GROUP_LABELS = {
   government: "Government pollsters (Filbar / Sharon)",
@@ -559,7 +687,10 @@ function updateTrendChart(){
   const datasets = [];
   PARTIES.filter(p=>activeParties.has(p.id)).forEach(p=>{
     activePartyGroups.forEach(group=>{
-      const rows = DATA.filter(r=>classifyPollster(r.pollster)===group);
+      const rows = DATA.filter(r=>
+        classifyPollster(r.pollster)===group &&
+        dateToTs(r.date)>=partyRange.start && dateToTs(r.date)<=partyRange.end
+      );
       const daily = buildDailySeries(rows, r=> (r[p.id]===null||r[p.id]===undefined) ? null : r[p.id]);
       if(daily.length===0) return;
       const mean = runningMean(daily,5);
@@ -614,7 +745,10 @@ function updateTrendChart(){
 function updateBlocChart(){
   const datasets = [];
   activeBlocGroups.forEach(group=>{
-    const rows = DATA.filter(r=>classifyPollster(r.pollster)===group);
+    const rows = DATA.filter(r=>
+      classifyPollster(r.pollster)===group &&
+      dateToTs(r.date)>=blocRange.start && dateToTs(r.date)<=blocRange.end
+    );
     const dash = group==='government' ? [6,4] : [];
     const groupLabel = group==='government' ? 'Gov' : 'Reg';
 
@@ -776,6 +910,10 @@ async function init(){
   buildChips();
   buildGroupToggles('partyGroupToggles', activePartyGroups, updateTrendChart);
   buildGroupToggles('blocGroupToggles', activeBlocGroups, updateBlocChart);
+  partyRange = {start:null, end:null};
+  blocRange = {start:null, end:null};
+  buildDateRangeControl('partyDateRange', partyRange, updateTrendChart);
+  buildDateRangeControl('blocDateRange', blocRange, updateBlocChart);
   updateTrendChart();
   updateBlocChart();
   renderTable();
@@ -785,7 +923,12 @@ async function init(){
     const btn = document.getElementById('refreshBtn');
     btn.classList.add('spin'); btn.textContent='Refreshing…';
     DATA = await loadData();
-    renderHero(); updateTrendChart(); updateBlocChart(); renderTable();
+    renderHero();
+    partyRange = {start:null, end:null};
+    blocRange = {start:null, end:null};
+    buildDateRangeControl('partyDateRange', partyRange, updateTrendChart);
+    buildDateRangeControl('blocDateRange', blocRange, updateBlocChart);
+    updateTrendChart(); updateBlocChart(); renderTable();
     btn.classList.remove('spin'); btn.textContent='Refresh';
   });
 }
