@@ -322,7 +322,7 @@
       <div class="chip-row" id="blocSpecToggles"></div>
       <div class="chip-row" id="blocGroupToggles"></div>
       <div class="daterange" id="blocDateRange"></div>
-      <div class="chart-box short"><canvas id="blocChart"></canvas></div>
+      <div class="chart-box"><canvas id="blocChart"></canvas></div>
     </div>
   </section>
 
@@ -405,8 +405,8 @@ const BLOC_COLORS = {
 
 let DATA = [];
 let sortState = {key:"date", dir:"desc"};
-let activeParties = new Set(["Likud","Yisr","Together","Shas","OtzmaYehudit","Democrats","UTJ","ReligiousZionism"]);
-let activePartyGroups = new Set(["government","regular"]);
+let activeParties = new Set(["Likud","Yisr","Together"]);
+let activePartyGroups = new Set(["regular"]);
 let activeBlocGroups = new Set(["government","regular"]);
 // Trend visibility is independent per pollster-group and per chart, so a
 // LOESS line can be shown even if that group's raw mean line is hidden.
@@ -717,7 +717,7 @@ function buildPollsterControls(containerId, groupSet, trendGroupSet, onChange){
   ["regular","government"].forEach(g=>{
     const chip = document.createElement('div');
     chip.className = 'chip' + (trendGroupSet.has(g) ? ' active' : '');
-    const label = g==='government' ? 'Government pollsters' : 'Regular pollsters';
+    const label = g==='government' ? 'Government pollsters (dashed)' : 'Regular pollsters';
     chip.innerHTML = `<span class="dot" style="background:#ece6d6"></span>${label} · LOESS trend line`;
     chip.addEventListener('click', ()=>{
       if(trendGroupSet.has(g)) trendGroupSet.delete(g); else trendGroupSet.add(g);
@@ -781,6 +781,7 @@ function updateTrendChart(){
           data: loessTrend(daily, 0.35),
           borderColor: p.color, backgroundColor: 'transparent',
           pointRadius: 0, borderWidth: 3.5,
+          borderDash: group==='government' ? [8,4] : [],
           spanGaps: true, tension: 0.3,
           borderCapStyle: 'round',
         });
@@ -866,7 +867,8 @@ function updateBlocChart(){
       if(showTrend){
         datasets.push({
           label:`${def.label} · ${groupLabel} trend`, data: loessTrend(daily,0.35),
-          borderColor: def.color, backgroundColor:'transparent', pointRadius:0, borderWidth:3.5, tension:0.3,
+          borderColor: def.color, backgroundColor:'transparent', pointRadius:0, borderWidth:3.5,
+          borderDash: group==='government' ? [8,4] : [], tension:0.3,
         });
       }
     });
