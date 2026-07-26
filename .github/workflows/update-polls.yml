@@ -40,6 +40,15 @@ jobs:
       - name: Install Playwright browser
         run: .venv/bin/python3 -m playwright install chromium
 
+      - name: Clear macOS quarantine flag on the browser binary
+        # Freshly-downloaded binaries get a Gatekeeper quarantine flag. When
+        # launched from a background LaunchAgent (no GUI session to show
+        # Apple's verification prompt), that can hang the launch instead of
+        # ever resolving — this is what caused the 180s timeout. Stripping
+        # the flag avoids the check entirely. Harmless no-op on Linux/Windows
+        # runners, and `|| true` keeps it from failing if already absent.
+        run: xattr -r -d com.apple.quarantine ~/Library/Caches/ms-playwright 2>/dev/null || true
+
       - name: Scrape latest polls
         run: .venv/bin/python3 scrape.py
 
