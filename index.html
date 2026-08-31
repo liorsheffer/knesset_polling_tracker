@@ -384,9 +384,14 @@ const PARTIES = [
   {id:"Raam", en:"Ra'am", he:"רע״מ", color:"#58d68d", blocCategory:"arab_opp"},
   {id:"Balad", en:"Balad", he:"בל״ד", color:"#229954", blocCategory:"arab_opp"},
   {id:"UnitedArabList", en:"United Arab List (joint)", he:"רשימה ערבית מאוחדת", color:"#82e0aa", blocCategory:"arab_opp"},
+  {id:"JointList", en:"The Joint List", he:"הרשימה המשותפת", color:"#0b5345", blocCategory:"arab_opp"},
 
   {id:"BlueWhite", en:"Blue & White", he:"כחול לבן", color:"#909497", blocCategory:"collaborator"},
   {id:"TrooperHendel", en:"Trooper–Hendel", he:"טרופר-הנדל", color:"#626567", blocCategory:"collaborator"},
+  {id:"ReservistsHome", en:"Zionist Home – The Reservists", he:"בית ציוני-המילואימניקים", color:"#707b7c", blocCategory:"collaborator"},
+  {id:"ErdanEdelstein", en:"Erdan–Edelstein party", he:"מפלגה בראשות גלעד ארדן ויולי אדלשטיין", color:"#4d5656", blocCategory:"collaborator"},
+
+  {id:"OferWinter", en:"Ofer Winter", he:"עופר וינטר", color:"#f5b041", blocCategory:"coalition"},
 ];
 const PARTY_MAP = Object.fromEntries(PARTIES.map(p=>[p.id,p]));
 const COALITION_IDS = PARTIES.filter(p=>p.blocCategory==="coalition").map(p=>p.id);
@@ -930,6 +935,10 @@ const TABLE_COLS = [
   {key:'HadashTaal', label:'Hadash-Taal', numeric:true},
   {key:'Raam', label:"Ra'am", numeric:true},
   {key:'Balad', label:'Balad', numeric:true},
+  {key:'JointList', label:'Joint List', numeric:true},
+  {key:'ReservistsHome', label:'Reservists', numeric:true},
+  {key:'ErdanEdelstein', label:'Erdan-Edelstein', numeric:true},
+  {key:'OferWinter', label:'O. Winter', numeric:true},
 ];
 
 function buildTableHead(){
