@@ -19,9 +19,15 @@ OUT_PATH = Path(__file__).parent / "data" / "polls.json"
 # English keys, in the same left-to-right order the party columns appear on
 # the site (after "poll number / date / respondents / outlet / pollster").
 PARTY_KEYS = [
+    # Columns 1-14: unchanged since this scraper was first written.
     "Likud", "UTJ", "Shas", "BlueWhite", "YeshAtid", "HadashTaal",
     "YisraelBeiteinu", "Democrats", "ReligiousZionism", "Raam", "Balad",
-    "OtzmaYehudit", "Together", "Yisr", "TrooperHendel", "UnitedArabList",
+    "OtzmaYehudit", "Together", "Yisr",
+    # Columns 15-18: as of Aug 2026, the site dropped "TrooperHendel" and
+    # "UnitedArabList" (no longer polled) and added these four in their
+    # place. If the live table's structure changes again, compare its
+    # header row against this list and update accordingly — see README.
+    "ReservistsHome", "JointList", "ErdanEdelstein", "OferWinter",
 ]
 
 
